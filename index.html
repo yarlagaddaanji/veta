@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>QR Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; }
+    #qr-reader { width: 100%; max-width: 400px; margin: 0 auto; }
+    #result { margin-top: 16px; padding: 8px; border: 1px solid #ccc; }
+    button { padding: 10px 16px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h2>QR Code Scanner</h2>
+
+  <button id="startBtn">Start Scanner</button>
+  <div id="qr-reader" style="display:none;"></div>
+  <div id="result">No scan yet.</div>
+
+  <script>
+    const startBtn = document.getElementById("startBtn");
+    const qrRegionId = "qr-reader";
+    const resultDiv = document.getElementById("result");
+    let html5QrcodeScanner = null;
+    const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; // <-- replace
+
+    function onScanSuccess(decodedText, decodedResult) {
+      resultDiv.textContent = "Scanned: " + decodedText;
+
+      // Send to Apps Script backend
+      fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: decodedText,
+          timestamp: new Date().toISOString()
+        })
+      })
+      .then(r => r.text())
+      .then(t => console.log("Server response:", t))
+      .catch(err => console.error("Error sending to server:", err));
+
+      // Optional: stop after first scan
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(err => console.error(err));
+        document.getElementById(qrRegionId).style.display = "none";
+        startBtn.disabled = false;
+        startBtn.textContent = "Start Scanner";
+      }
+    }
+
+    function onScanError(errorMessage) {
+      // You can log errors if needed
+      // console.warn(errorMessage);
+    }
+
+    startBtn.addEventListener("click", async () => {
+      startBtn.disabled = true;
+      startBtn.textContent = "Starting...";
+      document.getElementById(qrRegionId).style.display = "block";
+
+      html5QrcodeScanner = new Html5Qrcode(qrRegionId);
+
+      try {
+        await html5QrcodeScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: 250 },
+          onScanSuccess,
+          onScanError
+        );
+        startBtn.textContent = "Scanning...";
+      } catch (err) {
+        console.error("Camera start error:", err);
+        resultDiv.textContent = "Camera error: " + err;
+        startBtn.disabled = false;
+        startBtn.textContent = "Start Scanner";
+      }
+    });
+  </script>
+</body>
+</html>
